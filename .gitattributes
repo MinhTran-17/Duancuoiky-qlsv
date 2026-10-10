@@ -1,0 +1,4 @@
+# Giữ LF cho script/config chạy trong container Linux (tránh lỗi CRLF trên Windows)
+* text=auto eol=lf
+*.png binary
+*.jpg binary

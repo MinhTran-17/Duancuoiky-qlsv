@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quản lý Sinh viên</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">QLSV</a>
+  <nav>
+    <% Object.entries(resources).forEach(([k, res]) => { %>
+      <a href="/<%= k %>" class="<%= active === k ? 'active' : '' %>"><%= res.title %></a>
+    <% }) %>
+    <a href="/pma/" target="_blank" rel="noopener">phpMyAdmin</a>
+  </nav>
+</header>
+<main class="container">

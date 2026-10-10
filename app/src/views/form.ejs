@@ -1,0 +1,30 @@
+<%- include('partials/header') %>
+<h1><%= item.id ? 'Sửa' : 'Thêm' %> <%= r.title.toLowerCase() %></h1>
+<% if (error) { %><div class="alert bad"><%= error %></div><% } %>
+<form class="form" method="post" action="/<%= key %><%= item.id ? '/' + item.id : '' %>">
+  <% fields.forEach(f => { const v = item[f.name] ?? ''; %>
+    <label>
+      <span><%= f.label %><% if (f.required) { %> <b class="req">*</b><% } %></span>
+      <% if (f.type === 'select') { %>
+        <select name="<%= f.name %>" <%= f.required ? 'required' : '' %>>
+          <option value="">-- Chọn --</option>
+          <% f.options.forEach(o => { %>
+            <option value="<%= o.value %>" <%= String(o.value) === String(v) ? 'selected' : '' %>><%= o.label %></option>
+          <% }) %>
+        </select>
+      <% } else { %>
+        <input type="<%= f.type %>" name="<%= f.name %>" value="<%= v %>"
+          <%= f.required ? 'required' : '' %>
+          <% if (f.maxlength) { %>maxlength="<%= f.maxlength %>"<% } %>
+          <% if (f.min !== undefined) { %>min="<%= f.min %>"<% } %>
+          <% if (f.max !== undefined) { %>max="<%= f.max %>"<% } %>
+          <% if (f.step !== undefined) { %>step="<%= f.step %>"<% } %>>
+      <% } %>
+    </label>
+  <% }) %>
+  <div class="form-actions">
+    <button class="btn primary" type="submit">Lưu</button>
+    <a class="btn" href="/<%= key %>">Hủy</a>
+  </div>
+</form>
+<%- include('partials/footer') %>

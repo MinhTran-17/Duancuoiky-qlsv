@@ -1,0 +1,40 @@
+<%- include('partials/header') %>
+<div class="head-row">
+  <h1>Danh sách <%= r.title.toLowerCase() %></h1>
+  <a class="btn primary" href="/<%= key %>/new">+ Thêm <%= r.title.toLowerCase() %></a>
+</div>
+<% if (msg) { %><div class="alert ok"><%= msg %></div><% } %>
+<% if (err) { %><div class="alert bad"><%= err %></div><% } %>
+<form class="search" method="get" action="/<%= key %>">
+  <input type="search" name="q" value="<%= q %>" placeholder="Tìm kiếm..." maxlength="100">
+  <button class="btn" type="submit">Tìm</button>
+  <% if (q) { %><a class="btn" href="/<%= key %>">Xóa lọc</a><% } %>
+</form>
+<table>
+  <thead>
+    <tr>
+      <th>#</th>
+      <% r.columns.forEach(c => { %><th><%= c.label %></th><% }) %>
+      <th>Thao tác</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% if (!rows.length) { %>
+      <tr><td colspan="<%= r.columns.length + 2 %>" class="muted center">Không có dữ liệu</td></tr>
+    <% } %>
+    <% rows.forEach((row, i) => { %>
+      <tr>
+        <td><%= i + 1 %></td>
+        <% r.columns.forEach(c => { %><td><%= row[c.key] ?? '' %></td><% }) %>
+        <td class="actions">
+          <a class="btn small" href="/<%= key %>/<%= row.id %>/edit">Sửa</a>
+          <form method="post" action="/<%= key %>/<%= row.id %>/delete">
+            <button class="btn small danger" type="submit">Xóa</button>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+<p class="muted">Tổng: <%= rows.length %> bản ghi</p>
+<%- include('partials/footer') %>

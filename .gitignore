@@ -1,0 +1,12 @@
+# Bí mật – tuyệt đối không commit
+.env
+
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

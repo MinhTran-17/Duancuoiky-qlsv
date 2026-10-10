@@ -1,0 +1,104 @@
+# ============================================================
+# Đề 2 – Hệ thống Quản lý Sinh viên
+# Commit 1: Web app + MySQL + phpMyAdmin + Nginx reverse proxy (HTTPS)
+# ============================================================
+name: qlsv
+
+services:
+  # ---------- Reverse proxy: điểm vào duy nhất của hệ thống ----------
+  nginx:
+    build: ./nginx
+    image: qlsv-nginx:1.0
+    container_name: qlsv-nginx
+    restart: unless-stopped
+    ports:
+      - "80:8080"     # HTTP  -> tự chuyển sang HTTPS
+      - "443:8443"    # HTTPS
+    depends_on:
+      app:
+        condition: service_healthy
+      phpmyadmin:
+        condition: service_started
+    networks:
+      - frontend
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  # ---------- Web app quản lý sinh viên (Node.js/Express) ----------
+  app:
+    build: ./app
+    image: qlsv-app:1.0
+    container_name: qlsv-app
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${APP_DB_USER}
+      DB_PASSWORD: ${APP_DB_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  # ---------- Cơ sở dữ liệu MySQL ----------
+  mysql:
+    image: mysql:8.4
+    container_name: qlsv-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      APP_DB_USER: ${APP_DB_USER}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      TZ: Asia/Ho_Chi_Minh
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - backend          # chỉ nằm trong mạng nội bộ, KHÔNG public cổng 3306
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+
+  # ---------- Công cụ quản lý DB: phpMyAdmin (truy cập qua https://localhost/pma/) ----------
+  phpmyadmin:
+    image: phpmyadmin:5.2
+    container_name: qlsv-phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_ABSOLUTE_URI: ${PMA_ABSOLUTE_URI}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+
+networks:
+  frontend:            # Nginx <-> app, phpMyAdmin
+  backend:             # app, phpMyAdmin <-> MySQL
+    internal: true     # mạng nội bộ, không ra Internet
+
+volumes:
+  mysql_data:

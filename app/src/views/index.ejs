@@ -1,0 +1,10 @@
+<%- include('partials/header') %>
+<h1>Hệ thống Quản lý Sinh viên</h1>
+<p class="muted">Website chạy sau Nginx reverse proxy (HTTPS), dữ liệu lưu trên MySQL.</p>
+<div class="cards">
+  <a class="card" href="/lop"><span class="num"><%= stats.lop %></span><span>Lớp</span></a>
+  <a class="card" href="/sinh-vien"><span class="num"><%= stats.sinh_vien %></span><span>Sinh viên</span></a>
+  <a class="card" href="/mon-hoc"><span class="num"><%= stats.mon_hoc %></span><span>Môn học</span></a>
+  <a class="card" href="/diem"><span class="num"><%= stats.diem %></span><span>Bản ghi điểm</span></a>
+</div>
+<%- include('partials/footer') %>
