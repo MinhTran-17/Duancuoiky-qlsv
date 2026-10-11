@@ -1,6 +1,7 @@
 # ============================================================
 # Đề 2 – Hệ thống Quản lý Sinh viên
 # Commit 1: Web app + MySQL + phpMyAdmin + Nginx reverse proxy (HTTPS)
+# Commit 2: Giám sát Prometheus + Grafana (cAdvisor, node-exporter, nginx-exporter, mysqld-exporter)
 # ============================================================
 name: qlsv
 
@@ -18,6 +19,8 @@ services:
       app:
         condition: service_healthy
       phpmyadmin:
+        condition: service_started
+      grafana:
         condition: service_started
     networks:
       - frontend
@@ -46,6 +49,7 @@ services:
     networks:
       - frontend
       - backend
+      - monitoring       # để Prometheus thu thập /metrics
     read_only: true
     tmpfs:
       - /tmp
@@ -63,6 +67,7 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       APP_DB_USER: ${APP_DB_USER}
       APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      EXPORTER_DB_PASSWORD: ${EXPORTER_DB_PASSWORD}
       TZ: Asia/Ho_Chi_Minh
     command:
       - --character-set-server=utf8mb4
@@ -95,10 +100,132 @@ services:
       - frontend
       - backend
 
+  # ================== GIÁM SÁT (Commit 2) ==================
+
+  # ---------- Prometheus: thu thập & lưu trữ metrics ----------
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: qlsv-prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"   # chỉ truy cập được từ chính máy này (không public ra mạng)
+    networks:
+      - monitoring
+    security_opt:
+      - no-new-privileges:true
+
+  # ---------- Grafana: dashboard (truy cập qua https://localhost/grafana/) ----------
+  grafana:
+    image: grafana/grafana:11.6.0
+    container_name: qlsv-grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_SERVER_ROOT_URL: https://localhost/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - frontend         # để Nginx reverse proxy tới
+      - monitoring       # để đọc dữ liệu từ Prometheus
+    security_opt:
+      - no-new-privileges:true
+
+  # ---------- cAdvisor: metrics CPU/RAM/network của từng container ----------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: qlsv-cadvisor
+    restart: unless-stopped
+    privileged: true     # cAdvisor cần đọc thông tin cgroup của Docker host
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - monitoring
+
+  # ---------- node-exporter: metrics của máy chủ (CPU, RAM, disk) ----------
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: qlsv-node-exporter
+    restart: unless-stopped
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - monitoring
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+  # ---------- nginx-exporter: metrics của web server Nginx ----------
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:1.4.2
+    container_name: qlsv-nginx-exporter
+    restart: unless-stopped
+    command:
+      - --nginx.scrape-uri=http://nginx:8081/stub_status
+    depends_on:
+      - nginx
+    networks:
+      - frontend         # đọc stub_status của Nginx
+      - monitoring       # cho Prometheus thu thập
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
+  # ---------- mysqld-exporter: metrics của MySQL ----------
+  mysqld-exporter:
+    image: prom/mysqld-exporter:v0.17.2
+    container_name: qlsv-mysqld-exporter
+    restart: unless-stopped
+    command:
+      - --mysqld.address=mysql:3306
+      - --mysqld.username=exporter
+    environment:
+      MYSQLD_EXPORTER_PASSWORD: ${EXPORTER_DB_PASSWORD}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - backend          # kết nối MySQL
+      - monitoring       # cho Prometheus thu thập
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+
 networks:
   frontend:            # Nginx <-> app, phpMyAdmin
-  backend:             # app, phpMyAdmin <-> MySQL
+  backend:             # app, phpMyAdmin, mysqld-exporter <-> MySQL
     internal: true     # mạng nội bộ, không ra Internet
+  monitoring:          # Prometheus, Grafana và các exporter
 
 volumes:
   mysql_data:
+  prometheus_data:
+  grafana_data:

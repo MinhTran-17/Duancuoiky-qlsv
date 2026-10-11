@@ -1,0 +1,39 @@
+# Cảnh báo cơ bản – xem tại Prometheus > Alerts
+groups:
+  - name: qlsv-alerts
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Target {{ $labels.job }} bi DOWN"
+          description: "Prometheus khong thu thap duoc metrics tu {{ $labels.instance }} trong 1 phut."
+
+      - alert: MySQLDown
+        expr: mysql_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MySQL khong phan hoi"
+          description: "mysqld-exporter khong ket noi duoc toi MySQL."
+
+      - alert: HighHttp5xxRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ty le loi 5xx cua web app cao"
+          description: "Web app tra ve loi 5xx nhieu hon 0.1 request/giay trong 2 phut."
+
+      - alert: ContainerHighMemory
+        expr: container_memory_usage_bytes{name=~"qlsv-.+"} > 500 * 1024 * 1024
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} dung nhieu RAM"
+          description: "Container {{ $labels.name }} su dung tren 500MB RAM trong 2 phut."

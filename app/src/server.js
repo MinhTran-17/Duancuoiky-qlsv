@@ -2,6 +2,7 @@ const path = require('path');
 const express = require('express');
 const { pool, waitForDb } = require('./db');
 const resources = require('./resources');
+const metrics = require('./metrics');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -24,7 +25,25 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(metrics.middleware(resources));
+
 app.locals.resources = resources;
+
+// Endpoint cho Prometheus thu thập metrics (Nginx chặn /metrics từ bên ngoài)
+app.get('/metrics', async (req, res) => {
+  try {
+    const [[c]] = await pool.query(`SELECT
+      (SELECT COUNT(*) FROM lop) AS lop,
+      (SELECT COUNT(*) FROM sinh_vien) AS sinh_vien,
+      (SELECT COUNT(*) FROM mon_hoc) AS mon_hoc,
+      (SELECT COUNT(*) FROM diem) AS diem`);
+    Object.entries(c).forEach(([table, n]) => metrics.dbRecords.set({ table }, Number(n)));
+  } catch (err) {
+    console.error(`level=error msg="Khong cap nhat duoc qlsv_records" code=${err.code || ''}`);
+  }
+  res.set('Content-Type', metrics.register.contentType);
+  res.end(await metrics.register.metrics());
+});
 
 // Health check cho Docker
 app.get('/healthz', async (req, res) => {

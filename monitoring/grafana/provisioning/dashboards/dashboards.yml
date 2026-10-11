@@ -1,0 +1,10 @@
+# Tự động nạp các dashboard JSON trong /var/lib/grafana/dashboards
+apiVersion: 1
+providers:
+  - name: QLSV
+    folder: QLSV
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

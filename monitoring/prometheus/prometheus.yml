@@ -1,0 +1,39 @@
+# Cấu hình Prometheus – mô hình Pull: Prometheus chủ động lấy metrics từ các target
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alerts.yml
+
+scrape_configs:
+  # Chính Prometheus
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Container: CPU, RAM, network của từng container (cAdvisor)
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
+
+  # Máy chủ (Docker host / VM): CPU, RAM, disk (node-exporter)
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]
+
+  # Web server Nginx: kết nối, request (nginx-prometheus-exporter đọc stub_status)
+  - job_name: nginx
+    static_configs:
+      - targets: ["nginx-exporter:9113"]
+
+  # Web app: số request, thời gian phản hồi, số bản ghi (prom-client)
+  - job_name: app
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["app:3000"]
+
+  # Database MySQL: kết nối, truy vấn, uptime (mysqld-exporter)
+  - job_name: mysql
+    static_configs:
+      - targets: ["mysqld-exporter:9104"]
