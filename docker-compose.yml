@@ -2,6 +2,7 @@
 # Đề 2 – Hệ thống Quản lý Sinh viên
 # Commit 1: Web app + MySQL + phpMyAdmin + Nginx reverse proxy (HTTPS)
 # Commit 2: Giám sát Prometheus + Grafana (cAdvisor, node-exporter, nginx-exporter, mysqld-exporter)
+# Commit 3: Log tập trung Loki + Promtail, truy vấn bằng LogQL trên Grafana
 # ============================================================
 name: qlsv
 
@@ -142,6 +143,7 @@ services:
       - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - prometheus
+      - loki
     networks:
       - frontend         # để Nginx reverse proxy tới
       - monitoring       # để đọc dữ liệu từ Prometheus
@@ -219,13 +221,48 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  # ================== LOG TẬP TRUNG (Commit 3) ==================
+
+  # ---------- Loki: lưu trữ log tập trung (không public cổng) ----------
+  loki:
+    image: grafana/loki:3.5.7
+    container_name: qlsv-loki
+    restart: unless-stopped
+    command:
+      - -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./monitoring/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    networks:
+      - monitoring
+    security_opt:
+      - no-new-privileges:true
+
+  # ---------- Promtail: thu thập log container và đẩy về Loki ----------
+  promtail:
+    image: grafana/promtail:3.5.7
+    container_name: qlsv-promtail
+    restart: unless-stopped
+    command:
+      - -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./monitoring/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # chỉ đọc, để đọc log container
+    depends_on:
+      - loki
+    networks:
+      - monitoring
+    security_opt:
+      - no-new-privileges:true
+
 networks:
   frontend:            # Nginx <-> app, phpMyAdmin
   backend:             # app, phpMyAdmin, mysqld-exporter <-> MySQL
     internal: true     # mạng nội bộ, không ra Internet
-  monitoring:          # Prometheus, Grafana và các exporter
+  monitoring:          # Prometheus, Grafana, Loki, Promtail và các exporter
 
 volumes:
   mysql_data:
   prometheus_data:
   grafana_data:
+  loki_data:

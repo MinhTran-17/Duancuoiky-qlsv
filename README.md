@@ -1,7 +1,7 @@
 # Đề 2 – Hệ thống Quản lý Sinh viên
 
 Môn: **Triển khai và Quản trị Hệ thống Phần mềm**
-Sinh viên: Trần Vũ Minh – MSSV: `<điền MSSV>` – Lớp: `<điền lớp>`
+Sinh viên: Trần Vũ Minh – MSSV: `DTC245270131` – Lớp: `KTPM K23C`
 
 Website quản lý sinh viên (CRUD **lớp, sinh viên, môn học, điểm số**), triển khai toàn bộ bằng **Docker Compose**.
 

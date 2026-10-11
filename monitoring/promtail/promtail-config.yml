@@ -1,0 +1,52 @@
+# Promtail – agent thu thập log của các container Docker và đẩy về Loki
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+  log_level: warn
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    # Tự phát hiện container qua Docker API (socket chỉ đọc)
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 15s
+        filters:
+          - name: label
+            values: ["com.docker.compose.project=qlsv"]   # chỉ lấy log của project này
+    relabel_configs:
+      # Tên container: /qlsv-app -> qlsv-app
+      - source_labels: [__meta_docker_container_name]
+        regex: "/(.*)"
+        target_label: container
+      # Tên service trong docker-compose: app, nginx, mysql...
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        target_label: service
+      - source_labels: [__meta_docker_container_label_com_docker_compose_project]
+        target_label: project
+      # stdout / stderr
+      - source_labels: [__meta_docker_container_log_stream]
+        target_label: stream
+    pipeline_stages:
+      # Log của web app dạng logfmt (level=info method=GET ...) -> tách nhãn level
+      - match:
+          selector: '{service="app"}'
+          stages:
+            - logfmt:
+                mapping:
+                  level:
+            - labels:
+                level:
+      # Log truy cập Nginx -> tách mã trạng thái HTTP thành nhãn status
+      - match:
+          selector: '{service="nginx"}'
+          stages:
+            - regex:
+                expression: '^\S+ \S+ \S+ \[[^\]]+\] "[^"]*" (?P<status>\d{3}) '
+            - labels:
+                status:
